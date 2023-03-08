@@ -1,8 +1,8 @@
-# DialogueUIAPI
+## DialogueUIAPI
 <p align="center">
-  <img src="./presentation.jpg" alt="presentation" height="180" /> <br>
+  <img src="./presentation.jpg" alt="presentation" height="250" /> <br>
 </p>
-**DialogueUIAPI is an API in PocketMine-MP 4.0.0 that allows you to easily create and manage a dialogue interface for NPCs.**
+# DialogueUIAPI is an API in PocketMine-MP 4.0.0 that allows you to easily create and manage a dialogue interface for NPCs.
 
 ## SETUP
 **Only put the api in the src of your plugin and use it :)**

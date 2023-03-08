@@ -1,0 +1,6 @@
+name: DialogueUIAPI
+author: Yanoox
+version: 1.0.0
+api: 4.0.0
+antigen: Yanoox\DialogueUIAPI
+description: Display and manage NPC dialogue interfaces

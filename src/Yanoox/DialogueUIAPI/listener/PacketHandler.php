@@ -1,6 +1,6 @@
 <?php
 
-namespace Yanoox\DialogueUIAPI\Listener;
+namespace Yanoox\DialogueUIAPI\listener;
 
 use pocketmine\event\Listener;
 use pocketmine\event\server\DataPacketReceiveEvent;
