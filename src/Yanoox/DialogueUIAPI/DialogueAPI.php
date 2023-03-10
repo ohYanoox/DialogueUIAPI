@@ -24,7 +24,6 @@ use pocketmine\network\mcpe\protocol\types\entity\EntityIds;
 use pocketmine\network\mcpe\protocol\types\entity\PropertySyncData;
 use pocketmine\network\mcpe\protocol\types\entity\StringMetadataProperty;
 use pocketmine\Server;
-use InvalidArgumentException;
 use pocketmine\entity\Entity;
 use Yanoox\DialogueUIAPI\Listener\PacketHandler;
 use pocketmine\plugin\PluginBase;
@@ -82,7 +81,7 @@ final class DialogueAPI
                 ],
                 "portrait_offsets" => [
                     "scale" => [1, 1, 1],
-                    "translate" => [0, 0, 0] //may vary depending on the entity, e.g. Human
+                    "translate" => [0, 0, 0]
                 ]
             ]));
         } else {
@@ -154,9 +153,7 @@ final class DialogueAPI
 
     public function onClick(Player $player, int $id): void
     {
-        if (!array_key_exists($id, $this->buttons)) {
-            throw new InvalidArgumentException("ID $id doesn't exist");
-        }
+        if (!array_key_exists($id, $this->buttons)) return;
         $button = $this->buttons[$id];
 
         if ($button->getCloseOnClick()) $this->onClose([$player]);
