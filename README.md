@@ -16,7 +16,7 @@ DialogueAPI::register($this);
 
 ## Crate an instance of DialogueAPI
 ```php
-$dialogue = DialogueAPI::create("DialogueTest", "Title", 0, "Here's the dialogue", 
+$dialogue = DialogueAPI::create("DialogueTest", "Title", "Here's the dialogue",
     [
         DialogueButton::create("I agree")
             ->setHandler(function (Player $player, string $buttonName): void {
@@ -33,6 +33,9 @@ Note that for this version of DialogueUIAPI, entity is required
 
 ```php
 $dialogue->displayTo([$player], $entity);
+//or
+$dialogue->displayTo([$player]);
 ```
 
 ## There you go! You can now create with certainty NPC interfaces for your server. Have a nice day ;)
+*Browse the api to learn more*

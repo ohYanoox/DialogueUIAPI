@@ -1,5 +1,4 @@
 <?php
-
 /*
 
  _____      _____       ____ _____   ______          _____           _____
@@ -18,8 +17,13 @@
 */
 namespace Yanoox\DialogueUIAPI;
 
-use function json_encode;
-use function array_map;
+use pocketmine\network\mcpe\protocol\AddActorPacket;
+use pocketmine\network\mcpe\protocol\RemoveActorPacket;
+use pocketmine\network\mcpe\protocol\types\entity\ByteMetadataProperty;
+use pocketmine\network\mcpe\protocol\types\entity\EntityIds;
+use pocketmine\network\mcpe\protocol\types\entity\PropertySyncData;
+use pocketmine\network\mcpe\protocol\types\entity\StringMetadataProperty;
+use pocketmine\Server;
 use InvalidArgumentException;
 use pocketmine\entity\Entity;
 use Yanoox\DialogueUIAPI\Listener\PacketHandler;
@@ -30,20 +34,21 @@ use pocketmine\network\mcpe\protocol\NpcDialoguePacket;
 use pocketmine\network\mcpe\protocol\types\entity\EntityMetadataProperties;
 use pocketmine\player\Player;
 
-final class DialogueAPI{
+final class DialogueAPI
+{
 
-	protected ?int $actorId = null;
+    protected int $eid;
+
+    protected bool $isFakeActor = false;
 
     /**
      * @param string $sceneName
      * @param string $npcName
-     * @param int $npcId
      * @param string $dialogue
      * @param DialogueButton[] $buttons
      */
-    public function __construct(protected string $sceneName, protected string $npcName, protected int $npcId, protected string $dialogue, protected array $buttons)
+    public function __construct(protected string $sceneName, protected string $npcName, protected string $dialogue, protected array $buttons)
     {
-        if($this->sceneName === "")  throw new InvalidArgumentException("scenename should not be empty.");
     }
 
     public static function register(PluginBase $plugin)
@@ -51,31 +56,22 @@ final class DialogueAPI{
         $plugin->getServer()->getPluginManager()->registerEvents(new PacketHandler(), $plugin);
     }
 
-    public static function create(string $sceneName, string $npcName, int $npcId, string $dialogue, array $buttons): self
+    public static function create(string $sceneName, string $npcName, string $dialogue, array $buttons): self
     {
-        if ($sceneName === '') throw new \InvalidArgumentException("sceneName should not be");
-        return new self($sceneName, $npcName, $npcId, $dialogue, $buttons);
+        return new self($sceneName, $npcName, $dialogue, $buttons);
     }
 
     /**
      * TODO: if entity is null
      * @param Player[] $players
-     * @param Entity $entity
+     * @param Entity|null $entity
      * @return void
      */
-	public function displayTo(array $players, Entity $entity) : void
+    public function displayTo(array $players, ?Entity $entity = null): void
     {
-        $this->actorId = $entity->getId();
-        $propertyManager = $entity->getNetworkProperties();
-        $pk = NpcDialoguePacket::create(
-            $this->actorId,
-            NpcDialoguePacket::ACTION_OPEN,
-            $this->dialogue,
-            $this->sceneName,
-            $this->npcName,
-            json_encode(array_map(static fn(DialogueButton $data) => $data->dump(), $this->buttons))
-        );
-        foreach ($players as $player) {
+        $this->eid = $entity?->getId() ?? Entity::nextRuntimeId();
+        if ($entity !== null) {
+            $propertyManager = $entity->getNetworkProperties();
             $propertyManager->setByte(EntityMetadataProperties::HAS_NPC_COMPONENT, 1);
             $propertyManager->setString(EntityMetadataProperties::INTERACTIVE_TAG, $this->dialogue);
             $propertyManager->setString(EntityMetadataProperties::NPC_ACTIONS, json_encode(array_map(static fn(DialogueButton $data) => $data->dump(), $this->buttons)));
@@ -86,48 +82,95 @@ final class DialogueAPI{
                 ],
                 "portrait_offsets" => [
                     "scale" => [1, 1, 1],
-                    "translate" => [0, 0, 0]
+                    "translate" => [0, 0, 0] //may vary depending on the entity, e.g. Human
                 ]
             ]));
-            $player->getNetworkSession()->sendDataPacket($pk);
-            DialoguePoolData::$queue[$player->getUniqueId()->toString()][$this->sceneName] = $this;
+        } else {
+            $this->isFakeActor = true;
+            foreach ($players as $player) {
+                $add = $player->getDirectionVector();
+                $size = $player->getSize();
+                $xz = -(1 + $size->getWidth());
+                $add->x *= $xz;
+                $add->z *= $xz;
+                $add->y *= -(1 + $size->getHeight());
+                $player->getNetworkSession()->sendDataPacket(
+                    AddActorPacket::create(
+                        $this->eid,
+                        $this->eid,
+                        EntityIds::VILLAGER_V2, //whatever
+                        $player->getPosition()->addVector($add),
+                        null,
+                        $player->getLocation()->getPitch(),
+                        $player->getLocation()->getYaw(),
+                        $player->getLocation()->getYaw(),
+                        $player->getLocation()->getYaw(),
+                        [],
+                        [
+                            EntityMetadataProperties::NPC_ACTIONS => new StringMetadataProperty(json_encode(array_map(static fn(DialogueButton $data) => $data->dump(), $this->buttons))),
+                            EntityMetadataProperties::HAS_NPC_COMPONENT => new ByteMetadataProperty(1),
+                            EntityMetadataProperties::INTERACTIVE_TAG => new StringMetadataProperty($this->dialogue),
+                        ],
+                        new PropertySyncData([], []),
+                        []
+                    )
+                );
+            }
+        }
+        $dialoguePk = NpcDialoguePacket::create(
+            $this->eid,
+            NpcDialoguePacket::ACTION_OPEN,
+            $this->dialogue,
+            $this->sceneName,
+            $this->npcName,
+            json_encode(array_map(static fn(DialogueButton $data) => $data->dump(), $this->buttons))
+        );
+        foreach($players as $player) DialoguePoolData::$queue[$player->getUniqueId()->toString()][$this->sceneName] = $this;
+        Server::getInstance()->broadcastPackets($players, [$dialoguePk, $dialoguePk]);
+    }
+
+    /**
+     * @param Player[] $players
+     * @return void
+     */
+    public function onClose(array $players): void
+    {
+        if ($this->isFakeActor()) Server::getInstance()->broadcastPackets($players, [RemoveActorPacket::create($this->getActorId())]);
+        $mappedActions = json_encode(array_map(static fn(DialogueButton $data) => $data->dump(), $this->buttons));
+        foreach($players as $player)
+        {
+            $player->getNetworkSession()->sendDataPacket(
+                NpcDialoguePacket::create(
+                    $this->eid,
+                    NpcDialoguePacket::ACTION_CLOSE,
+                    $this->dialogue,
+                    $this->sceneName,
+                    $this->npcName,
+                    $mappedActions
+                )
+            );
         }
     }
 
-
-	public function onClose(Player $player) : void{
-		$mappedActions = json_encode(array_map(static fn(DialogueButton $data) => $data->dump(), $this->buttons));
-		$player->getNetworkSession()->sendDataPacket(
-			NpcDialoguePacket::create(
-				$this->actorId,
-				NpcDialoguePacket::ACTION_CLOSE,
-				$this->dialogue,
-				$this->sceneName,
-				$this->npcName,
-				$mappedActions
-			)
-		);
-	}
-
     public function onClick(Player $player, int $id): void
     {
-        if(!array_key_exists($id, $this->buttons)){
+        if (!array_key_exists($id, $this->buttons)) {
             throw new InvalidArgumentException("ID $id doesn't exist");
         }
         $button = $this->buttons[$id];
 
-        if($button->getCloseOnClick())$this->onClose($player);
+        if ($button->getCloseOnClick()) $this->onClose([$player]);
 
         ($this->buttons[$id]->getHandler())($player, $button->getName());
     }
 
-    public function setActorId(int $actorId): void
+    public function isFakeActor(): bool
     {
-        $this->actorId = $actorId;
+        return $this->isFakeActor;
     }
 
     public function getActorId(): int
     {
-        return $this->actorId;
+        return $this->eid;
     }
 }
