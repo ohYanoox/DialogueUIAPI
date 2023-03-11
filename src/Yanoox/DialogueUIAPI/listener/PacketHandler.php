@@ -35,12 +35,14 @@ final class PacketHandler implements Listener
             if ($player == null) throw new AssumptionFailedError("Player is not connected");
             $dialogue = DialoguePoolData::$queue[$player->getUniqueId()->toString()][$packet->sceneName] ?? null;
             if ($dialogue === null) return;
-            switch($request){
+            switch ($request) {
                 case NpcRequestPacket::REQUEST_EXECUTE_ACTION:
+                    $dialogue->onClose([$player]);
+                    $dialogue->onClick($player, $packet->actionIndex);
+                    break;
                 case NpcRequestPacket::REQUEST_EXECUTE_CLOSING_COMMANDS:
-                 $dialogue->onClose([$player]);
-                 $dialogue->onClick($player, $packet->actionIndex);
-                 break;
+                    $dialogue->onClose([$player]);
+                    break;
             }
             //TODO: creative mode packets
         }
