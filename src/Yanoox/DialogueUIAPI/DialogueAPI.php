@@ -23,10 +23,8 @@ use pocketmine\network\mcpe\protocol\types\entity\ByteMetadataProperty;
 use pocketmine\network\mcpe\protocol\types\entity\EntityIds;
 use pocketmine\network\mcpe\protocol\types\entity\PropertySyncData;
 use pocketmine\network\mcpe\protocol\types\entity\StringMetadataProperty;
-use pocketmine\Server;
 use pocketmine\entity\Entity;
-use Yanoox\DialogueUIAPI\Listener\PacketHandler;
-use pocketmine\plugin\PluginBase;
+use RuntimeException;
 use Yanoox\DialogueUIAPI\data\DialoguePoolData;
 use Yanoox\DialogueUIAPI\element\DialogueButton;
 use pocketmine\network\mcpe\protocol\NpcDialoguePacket;
@@ -48,11 +46,9 @@ final class DialogueAPI
      */
     public function __construct(protected string $sceneName, protected string $npcName, protected string $dialogue, protected array $buttons)
     {
-    }
-
-    public static function register(PluginBase $plugin)
-    {
-        $plugin->getServer()->getPluginManager()->registerEvents(new PacketHandler(), $plugin);
+        if (!DialogueHandler::isRegistered()) {
+            throw new RuntimeException("DialogueUIAPI is not registered. Please call DialogueHandler::register() before using the API.");
+        }
     }
 
     public static function create(string $sceneName, string $npcName, string $dialogue, array $buttons): self
@@ -125,7 +121,7 @@ final class DialogueAPI
             json_encode(array_map(static fn(DialogueButton $data) => $data->dump(), $this->buttons))
         );
         foreach($players as $player) DialoguePoolData::$queue[$player->getUniqueId()->toString()][$this->sceneName] = $this;
-        Server::getInstance()->broadcastPackets($players, [$dialoguePk, $dialoguePk]);
+        DialogueHandler::getPlugin()->getServer()->getInstance()->broadcastPackets($players, [$dialoguePk, $dialoguePk]);
     }
 
     /**
@@ -134,7 +130,7 @@ final class DialogueAPI
      */
     public function onClose(array $players): void
     {
-        if ($this->isFakeActor()) Server::getInstance()->broadcastPackets($players, [RemoveActorPacket::create($this->getActorId())]);
+        if ($this->isFakeActor()) DialogueHandler::getPlugin()->getServer()->broadcastPackets($players, [RemoveActorPacket::create($this->getActorId())]);
         $mappedActions = json_encode(array_map(static fn(DialogueButton $data) => $data->dump(), $this->buttons));
         foreach($players as $player)
         {
