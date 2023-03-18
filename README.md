@@ -11,7 +11,7 @@ You will find an example in Example\Main.php
 
 ## Run this code when your plugin is activated. The function will register an essential listener
 ```php
-DialogueAPI::register($this);
+DialogueHandler::register()
 ```
 
 ## Crate an instance of DialogueAPI

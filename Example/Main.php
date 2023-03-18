@@ -25,12 +25,15 @@ use pocketmine\player\Player;
 use pocketmine\plugin\PluginBase;
 use pocketmine\Server;
 use Yanoox\DialogueUIAPI\DialogueAPI;
+use Yanoox\DialogueUIAPI\DialogueHandler;
 use Yanoox\DialogueUIAPI\element\DialogueButton;
 
 final class Main extends PluginBase
 {
     protected function onEnable(): void
     {
+        DialogueHandler::register($this);
+
         $dialogue = DialogueAPI::create("DialogueTest", "Title", "Here's the dialogue",
             [
                 DialogueButton::create("I agree")
