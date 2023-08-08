@@ -29,7 +29,7 @@ $dialogue = DialogueAPI::create("DialogueTest", "Title", "Here's the dialogue",
 ```
 
 ## Send the interface to the players
-Note that for this version of DialogueUIAPI, entity is required
+Note that for this version of DialogueUIAPI, the entity is not necessary.
 
 ```php
 $dialogue->displayTo([$player], $entity);
