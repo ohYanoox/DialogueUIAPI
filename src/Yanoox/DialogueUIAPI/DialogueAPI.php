@@ -17,6 +17,7 @@
 */
 namespace Yanoox\DialogueUIAPI;
 
+use pocketmine\network\mcpe\NetworkBroadcastUtils;
 use pocketmine\network\mcpe\protocol\AddActorPacket;
 use pocketmine\network\mcpe\protocol\RemoveActorPacket;
 use pocketmine\network\mcpe\protocol\types\entity\ByteMetadataProperty;
@@ -121,7 +122,7 @@ final class DialogueAPI
             json_encode(array_map(static fn(DialogueButton $data) => $data->dump(), $this->buttons))
         );
         foreach($players as $player) DialoguePoolData::$queue[$player->getUniqueId()->toString()][$this->sceneName] = $this;
-        DialogueHandler::getPlugin()->getServer()->getInstance()->broadcastPackets($players, [$dialoguePk, $dialoguePk]);
+        NetworkBroadcastUtils::broadcastPackets($players, [$dialoguePk, $dialoguePk]);
     }
 
     /**
@@ -130,7 +131,7 @@ final class DialogueAPI
      */
     public function onClose(array $players): void
     {
-        if ($this->isFakeActor()) DialogueHandler::getPlugin()->getServer()->broadcastPackets($players, [RemoveActorPacket::create($this->getActorId())]);
+        if ($this->isFakeActor()) NetworkBroadcastUtils::broadcastPackets($players, [RemoveActorPacket::create($this->getActorId())]);
         $mappedActions = json_encode(array_map(static fn(DialogueButton $data) => $data->dump(), $this->buttons));
         foreach($players as $player)
         {
